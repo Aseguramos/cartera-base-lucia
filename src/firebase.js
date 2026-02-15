@@ -1,10 +1,11 @@
 // src/firebase.js
+
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBQfjkHAmxP0pwxKFdqoKnDld5UqC1kymU",
+  apiKey: "AIzaSyBQFjkHAmxP0pwxKFdqoKnD1d5UqC1kymU",
   authDomain: "cartera-aseguradoras.firebaseapp.com",
   projectId: "cartera-aseguradoras",
   storageBucket: "cartera-aseguradoras.appspot.com",
@@ -14,14 +15,10 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
 
-enableIndexedDbPersistence(db)
-  .then(() => {
-    console.log("🔥 Offline activado");
-  })
-  .catch((err) => {
-    console.log("Offline no disponible:", err.code);
-  });
+// 🔥 FIRESTORE OFFLINE REAL
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache()
+});
 
 export { auth, db };
