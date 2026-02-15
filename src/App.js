@@ -9,7 +9,9 @@ import Login from "./Login";
 const PASSWORD_POLIZAS = "1234"; // <-- CAMBIA AQUÍ TU CONTRASEÑA
 
 export default function App() {
-  const [logueado, setLogueado] = useState(false);
+  const [logueado, setLogueado] = useState(
+  localStorage.getItem("logueado") === "true"
+);
   const [vista, setVista] = useState("cartera"); // "cartera" | "polizas"
 
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -33,6 +35,7 @@ useEffect(() => {
   const cerrarSesion = () => {
     setLogueado(false);
     setVista("cartera");
+    localStorage.removeItem("logueado");
     setPolizasAutorizadas(false);
     setMostrarModalPolizas(false);
     setPassPolizas("");
@@ -85,6 +88,7 @@ useEffect(() => {
     return (
       <div className="min-h-screen bg-gray-50">
         <Login onLogin={() => setLogueado(true)} />
+        localStorage.setItem("logueado", "true");
       </div>
     );
   }

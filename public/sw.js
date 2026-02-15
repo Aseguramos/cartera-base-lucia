@@ -1,22 +1,28 @@
-const CACHE_NAME = "cartera-cache-v1";
+const CACHE_NAME = "cartera-offline-v1";
 
+const urlsToCache = [
+  "/",
+  "/index.html"
+];
+
+// INSTALACIÓN
 self.addEventListener("install", (event) => {
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(urlsToCache);
+    })
+  );
 });
 
+// ACTIVAR
 self.addEventListener("activate", (event) => {
-  clients.claim();
+  event.waitUntil(self.clients.claim());
 });
 
+// OFFLINE REAL
 self.addEventListener("fetch", (event) => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request).catch(() => {
-        return new Response("", {
-          status: 200,
-          statusText: "Offline"
-        });
-      });
-    })
+    fetch(event.request).catch(() => caches.match("/index.html"))
   );
 });
