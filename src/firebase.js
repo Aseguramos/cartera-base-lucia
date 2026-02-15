@@ -1,7 +1,7 @@
 // src/firebase.js
 
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeAuth, browserLocalPersistence } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -14,7 +14,11 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+
+// 🔥 AUTH OFFLINE REAL
+const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence
+});
 
 // 🔥 FIRESTORE OFFLINE REAL
 const db = initializeFirestore(app, {
