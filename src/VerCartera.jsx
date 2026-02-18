@@ -31,6 +31,24 @@ const VerCartera = () => {
   const [gestionText, setGestionText] = useState("");
   const [rowRecaudada, setRowRecaudada] = useState("");
 
+  const [pendienteSync, setPendienteSync] = useState(false);
+const [colaSync, setColaSync] = useState([]);
+
+const [online, setOnline] = useState(navigator.onLine);
+
+useEffect(() => {
+  const onOnline = () => setOnline(true);
+  const onOffline = () => setOnline(false);
+
+  window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOffline);
+
+  return () => {
+    window.removeEventListener("online", onOnline);
+    window.removeEventListener("offline", onOffline);
+  };
+}, []);
+
   // --- Contadores ---
   const [vigentes, setVigentes] = useState(0);
   const [proximas, setProximas] = useState(0);
@@ -48,6 +66,8 @@ const VerCartera = () => {
   const [borrando, setBorrando] = useState(false);
 
   useEffect(() => { setFiltroGestion("todos"); }, [filterStatus, filterAseguradora]);
+
+
 
   // ================== HELPERS ==================
 
@@ -281,6 +301,17 @@ const VerCartera = () => {
   // ================== RENDER ==================
   return (
     <div className="w-full max-w-(1500px) px-1">
+
+    {pendienteSync && (
+  <div style={{
+    background:"#facc15",
+    padding:"8px",
+    textAlign:"center",
+    fontWeight:"bold"
+  }}>
+    🔄 Hay gestiones pendientes por sincronizar
+  </div>
+)}
       
       
       <h1 className="text-5xl font-extrabold text-center text-green-700 mb-10">Bienvenido a tu Cartera</h1>
@@ -516,17 +547,47 @@ const VerCartera = () => {
                             <button
                               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
                               onClick={async () => {
+
+                                console.log("BOTON REAL");
                                 if (!selectedDocId) return window.alert("No se encontró el ID del documento.");
+                                window.alert("ENTRÓ AL BOTÓN");
                                 try {
-                                  const valorGestion = rowRecaudada === "Sí" ? "sí" : gestionText;
-                                  await updateDoc(doc(db, "cartera", selectedDocId), {
-                                    recaudada: rowRecaudada,
-                                    gestion: valorGestion,
-                                  });
-                                  await cargarDatos();
-                                  setOpenRowId(null);
-                                  setAlerta({ tipo: "ok", mensaje: "Gestión guardada correctamente" });
-                                  setTimeout(() => setAlerta({ tipo: "", mensaje: "" }), 2500);
+const valorGestion = rowRecaudada === "Si" ? "si" : gestionText;
+
+const datosUpdate = {
+  recaudada: rowRecaudada,
+  gestion: valorGestion,
+};
+
+if (!online) {
+  // 🔴 SIN INTERNET
+  setColaSync(prev => [
+    ...prev,
+    { id: selectedDocId, datos: datosUpdate }
+  ]);
+
+  setPendienteSync(true);
+  setOpenRowId(null);
+
+  setAlerta({
+    tipo: "ok",
+    mensaje: "Gestión guardada (pendiente de sincronizar)"
+  });
+
+} else {
+  // 🟢 CON INTERNET
+  await updateDoc(doc(db, "cartera", selectedDocId), datosUpdate);
+
+  await cargarDatos();
+  setOpenRowId(null);
+
+  setAlerta({
+    tipo: "ok",
+    mensaje: "Gestión guardada correctamente"
+  });
+
+  setTimeout(() => setAlerta({ tipo: "", mensaje: "" }), 2500);
+}
                                 } catch (e) {
                                   console.error("Error al guardar gestión:", e);
                                   setAlerta({ tipo: "error", mensaje: "Hubo un error al guardar la gestión." });
@@ -535,6 +596,8 @@ const VerCartera = () => {
                               }}
                             >
                               Guardar Gestión
+
+
                             </button>
 
                             <button className="bg-white border px-2 py-1 rounded hover:bg-gray-100" onClick={() => setOpenRowId(null)}>
