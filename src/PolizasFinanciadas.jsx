@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, addDoc, updateDoc, doc } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 
 function getSemaforo(poliza) {
@@ -18,21 +18,24 @@ function getSemaforo(poliza) {
     poliza.firmada ||
     poliza.desembolsada;
 
+  // 🟡 Delegada
   if (poliza.delegada) {
     if (poliza.endoso === "SI") {
-      if (baseCompleta && poliza.certificacion) return "verde";
+      if (baseCompleta && poliza.certificacion && poliza.correoEndoso) return "verde";
     } else {
       if (baseCompleta) return "verde";
     }
     return "amarillo";
   }
 
+  // 🟣 ENDOSO SI
   if (poliza.endoso === "SI") {
-    if (baseCompleta && poliza.certificacion) return "verde";
+    if (baseCompleta && poliza.certificacion && poliza.correoEndoso) return "verde";
     if (baseParcial || poliza.certificacion) return "amarillo";
     return "rojo";
   }
 
+  // 🟢 ENDOSO NO
   if (baseCompleta) return "verde";
   if (baseParcial) return "amarillo";
 
@@ -41,293 +44,329 @@ function getSemaforo(poliza) {
 
 export default function PolizasFinanciadas() {
 
-  // 🚨 ALERTA AUTOMATICA CORREO ENDOSO
-useEffect(() => {
+  const entidadesLista = [
+    "Finesa","Previcredito","Crediestado","Credivalores",
+    "ALLIANZ","ESTADO","SURA","MUNDIAL","PREVISORA",
+    "AXA COLPATRIA","MAPFRE","SBS","SOLIDARIA","HDI"
+  ];
 
-  polizas.forEach(p => {
+  const aseguradorasLista = [
+    "ALLIANZ","ESTADO","SURA","MUNDIAL","PREVISORA",
+    "AXA COLPATRIA","MAPFRE","SBS","SOLIDARIA","HDI"
+  ];
 
-    if(
-      p.endoso === "SI" &&
-      p.certificacion === true &&
-      p.correoEndoso === "NO"
-    ){
-      console.log("⚠️ FALTA ENVIAR CORREO ENDOSO:", p.numeroPoliza);
-    }
+  const [carteraReal, setCarteraReal] = useState([]);
 
-  });
-
-},[polizas]);
-
-const entidadesLista = [
-"Finesa","Previcredito","Crediestado","Credivalores",
-"ALLIANZ","ESTADO","SURA","MUNDIAL","PREVISORA",
-"AXA COLPATRIA","MAPFRE","SBS","SOLIDARIA","HDI"
-];
-
-const aseguradorasLista = [
-"ALLIANZ","ESTADO","SURA","MUNDIAL","PREVISORA",
-"AXA COLPATRIA","MAPFRE","SBS","SOLIDARIA","HDI"
-];
-
-const [polizas,setPolizas] = useState([]);
-
-const ref = collection(db,"polizasFinanciadas");
+  useEffect(() => {
+    const cargarCartera = async () => {
+      const querySnapshot = await getDocs(collection(db, "cartera"));
+      const datos = querySnapshot.docs.map(doc => doc.data());
+      setCarteraReal(datos);
+    };
 
 
-// 🔥 CARGAR DESDE FIREBASE (SOLUCION BORRADO)
-useEffect(()=>{
-const cargar = async ()=>{
-const snap = await getDocs(ref);
-const datos = snap.docs.map(d=>({firebaseId:d.id,...d.data()}));
-setPolizas(datos);
-};
-cargar();
-},[]);
-
-
-// 🔥 GUARDADO AUTOMATICO (SIN BOTONES)
-useEffect(()=>{
-polizas.forEach(async(p)=>{
-if(!p.firebaseId){
-const docRef = await addDoc(ref,p);
-p.firebaseId = docRef.id;
-}else{
-await updateDoc(doc(db,"polizasFinanciadas",p.firebaseId),p);
-}
+    cargarCartera();
+  }, []);
+const [polizas, setPolizas] = useState(() => {
+  const guardadas = localStorage.getItem("polizasFinanciadasJL");
+  return guardadas
+    ? JSON.parse(guardadas)
+    : [{
+        id: 1,
+        numeroPoliza: "",
+        fecha: "2026-02-10",
+        placa: "",
+        nombre: "",
+        entidad: "Finesa",
+        aseguradora: "SURA",
+        gestor: "",
+        cuotas:1,
+        valor:"",
+        montada:false,
+        recaudada:false,
+        firmada:false,
+        endoso:"",
+        certificacion:false,
+        correoEndoso:false,
+        desembolsada:false,
+        delegada:false,
+        delegadaA:""
+      }];
 });
+
+// 💾 GUARDADO AUTOMATICO LOCAL (NO SE BORRAN AL CAMBIAR PESTAÑA)
+useEffect(()=>{
+  localStorage.setItem(
+    "polizasFinanciadasJL",
+    JSON.stringify(polizas)
+  );
 },[polizas]);
 
+  const agregarPoliza = () => {
+    setPolizas(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        numeroPoliza: "",
+        fecha: "",
+        placa: "",
+        nombre: "",
+        entidad: "Finesa",
+        gestor: "",
+        cuotas: 1,
+        valor: "",
+        montada: false,
+        recaudada: false,
+        firmada: false,
+        endoso: "",
+        certificacion:false,
+        correoEndoso:false,
+        desembolsada: false,
+        delegada: false,
+        delegadaA:""
+      }
+    ]);
+  };
 
+  const eliminarPoliza = (id) => {
+    setPolizas(prev => prev.filter(p => p.id !== id));
+  };
 
-const agregarPoliza = ()=>{
-setPolizas([
-...polizas,
-{
-id:Date.now(),
-numeroPoliza:"",
-fecha:"",
-placa:"",
-nombre:"",
-entidad:"Finesa",
-aseguradora:"SURA",
-gestor:"",
-cuotas:1,
-valor:"",
-montada:false,
-recaudada:false,
-firmada:false,
-endoso:"",
-certificacion:false,
-desembolsada:false,
-delegada:false,
-delegadaA:"",
-correoEndoso:""   // ✉️ NUEVO CAMPO
-}
-]);
-};
+  return (
+    <div className="pl-0 pr-4 pt-4 pb-4 w-full text-left">
+      <h2 className="text-xl font-bold mb-4">Pólizas Financiadas</h2>
 
-const eliminarPoliza = (id)=>{
-setPolizas(polizas.filter(p=>p.id!==id));
-};
+      <button
+        onClick={agregarPoliza}
+        className="mb-4 bg-green-600 text-white px-4 py-2 rounded-lg"
+      >
+        + Póliza Nueva
+      </button>
 
-const actualizar=(id,campo,valor)=>{
-setPolizas(polizas.map(p=>
-p.id===id?{...p,[campo]:valor}:p
-));
-};
+      <table className="w-full border table-auto -ml-64">
+        <thead className="bg-gray-100">
+          <tr>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th>Póliza</th>
+            <th>Aseguradora</th>
+            <th>Placa</th>
+            <th>Nombre</th>
+            <th>Entidad</th>
+            <th>cuotas</th>
+            <th>Valor</th>
+            <th>Montada</th>
+            <th>Recaudada</th>
+            <th>Firmada</th>
+            <th>Desemb.</th>
+            <th>Endoso</th>
+            <th>Certif.</th>
+            <th>Correo Endoso</th>
+            <th>Deleg.</th>
+            <th>Delegada a</th>
+            <th>Gestor</th>
+            <th>Accion</th>
+          </tr>
+        </thead>
 
+        <tbody>
+          {polizas.map(p => {
+            const estado = getSemaforo(p);
 
-return(
-<div className="pl-0 pr-4 pt-4 pb-4 w-full text-left">
+            return (
+              <tr key={p.id} className="border-b">
 
-<h2 className="text-xl font-bold mb-4">Pólizas Financiadas</h2>
+                <td>
+                 <div className="flex items-start gap-3">
 
-<button
-onClick={agregarPoliza}
-className="mb-4 bg-green-600 text-white px-4 py-2 rounded-lg"
->
-+ Póliza Nueva
-</button>
+  {/* 🔵 SEMÁFORO GENERAL GRANDE */}
+  <div>
+    <span
+      className={`inline-flex items-center justify-center w-9 h-9 rounded-full border-2 border-white shadow-lg ${
+        estado === "verde"
+          ? "bg-green-500"
+          : estado === "amarillo"
+          ? "bg-yellow-400"
+          : "bg-red-500"
+      } ${
+        p.endoso === "SI" && p.desembolsada && !p.certificacion
+          ? "animate-pulse"
+          : ""
+      }`}
+    />
+  </div>
+  </div>
 
-<table className="w-full border table-auto -ml-64">
+  {/* 🧾 DETALLE PROCESO */}
+  <div className="flex flex-col gap-1 text-xs">
 
-<thead className="bg-gray-100">
-<tr>
-<th>Estado</th>
-<th>Fecha</th>
-<th>Póliza</th>
-<th>Aseguradora</th>
-<th>Placa</th>
-<th>Nombre</th>
-<th>Entidad</th>
-<th>Cuotas</th>
-<th>Valor</th>
-<th>Montada</th>
-<th>Recaudada</th>
-<th>Firmada</th>
-<th>Desemb.</th>
-<th>Endoso</th>
-<th>Certif.</th>
-<th>Correo Endoso</th> {/* ✉️ NUEVA */}
-<th>Deleg.</th>
-<th>Delegada a</th>
-<th>Gestor</th>
-<th>Acción</th>
-</tr>
-</thead>
+                   
 
-<tbody>
-{polizas.map(p=>{
+                    {p.montada && <span className="text-blue-600">🔵 Montada</span>}
+                    {p.recaudada && <span className="text-purple-600">🟣 Recaudada</span>}
+                    {p.firmada && <span className="text-green-600">🟢 Firmada</span>}
+                    {p.desembolsada && <span className="text-green-700">💰 Desembolsada</span>}
 
-const estado=getSemaforo(p);
-
-return(
-<tr key={p.id} className="border-b">
-
-<td>
-<span className={`inline-block w-4 h-4 rounded-full ${
-estado==="verde"?"bg-green-500":
-estado==="amarillo"?"bg-yellow-400":"bg-red-500"
-}`}/>
-</td>
-
-<td>
-<input type="date" value={p.fecha}
-onChange={(e)=>actualizar(p.id,"fecha",e.target.value)}
-className="border rounded px-2 py-1"/>
-</td>
-
-<td>
-<input value={p.numeroPoliza}
-onChange={(e)=>actualizar(p.id,"numeroPoliza",e.target.value)}
-className="border rounded px-2 py-1 w-28"/>
-</td>
-
-<td>
-<select value={p.aseguradora}
-onChange={(e)=>actualizar(p.id,"aseguradora",e.target.value)}
-className="border rounded px-2 py-1">
-{aseguradorasLista.map(a=><option key={a}>{a}</option>)}
-</select>
-</td>
-
-<td>
-<input value={p.placa}
-onChange={(e)=>actualizar(p.id,"placa",e.target.value.toUpperCase())}
-className="border rounded px-2 py-1 w-24"/>
-</td>
-
-<td>
-<input value={p.nombre}
-onChange={(e)=>actualizar(p.id,"nombre",e.target.value)}
-className="border rounded px-2 py-1 w-32"/>
-</td>
-
-<td>
-<select value={p.entidad}
-onChange={(e)=>actualizar(p.id,"entidad",e.target.value)}
-className="border rounded px-2 py-1">
-{entidadesLista.map(ent=><option key={ent}>{ent}</option>)}
-</select>
-</td>
-
-<td>
-<select value={p.cuotas}
-onChange={(e)=>actualizar(p.id,"cuotas",Number(e.target.value))}
-className="border rounded px-2 py-1">
-{[...Array(12)].map((_,i)=><option key={i+1}>{i+1}</option>)}
-</select>
-</td>
-
-<td>
-<input value={p.valor}
-onChange={(e)=>actualizar(p.id,"valor",e.target.value)}
-className="border rounded px-2 py-1 w-28"/>
-</td>
-
-<td><input type="checkbox" checked={p.montada}
-onChange={(e)=>actualizar(p.id,"montada",e.target.checked)}/></td>
-
-<td><input type="checkbox" checked={p.recaudada}
-disabled={!p.montada}
-onChange={(e)=>actualizar(p.id,"recaudada",e.target.checked)}/></td>
-
-<td><input type="checkbox" checked={p.firmada}
-disabled={!p.recaudada}
-onChange={(e)=>actualizar(p.id,"firmada",e.target.checked)}/></td>
-
-<td><input type="checkbox" checked={p.desembolsada}
-disabled={!p.firmada}
-onChange={(e)=>actualizar(p.id,"desembolsada",e.target.checked)}/></td>
-
-<td>
-<select value={p.endoso}
-onChange={(e)=>actualizar(p.id,"endoso",e.target.value)}
-className="border rounded px-1">
-<option value="">-</option>
-<option value="SI">SI</option>
-<option value="NO">NO</option>
-</select>
-</td>
-
-<td>
-{p.endoso==="SI" &&(
-<input type="checkbox"
-checked={p.certificacion}
-disabled={!p.desembolsada}
-onChange={(e)=>actualizar(p.id,"certificacion",e.target.checked)}/>
+                    {p.endoso==="SI" && !p.certificacion && p.desembolsada &&
+                      <span className="text-orange-500">📄 Certificación pendiente</span>
+                    }
+                    {p.endoso === "SI" && p.certificacion && !p.correoEndoso && (
+  <span className="text-orange-500">📩 Correo Endoso pendiente</span>
 )}
+
+                    {estado==="verde" &&
+                      <span className="text-green-700 font-semibold">
+                        ✔ PROCESO FINALIZADO
+                      </span>
+                    }
+
+                  </div>
+                </td>
+
+                <td>
+                  <input type="date"
+                    value={p.fecha}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,fecha:e.target.value}:pol))}
+                    className="border rounded px-2 py-1"/>
+                </td>
+
+                <td>
+                  <input
+                    value={p.numeroPoliza}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,numeroPoliza:e.target.value}:pol))}
+                    className="border rounded px-2 py-1 w-28"/>
+                </td>
+
+                <td>
+                  <select value={p.aseguradora}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,aseguradora:e.target.value}:pol))}
+                    className="border rounded px-2 py-1">
+                    {aseguradorasLista.map(a=><option key={a}>{a}</option>)}
+                  </select>
+                </td>
+
+                <td>
+                  <input value={p.placa}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,placa:e.target.value.toUpperCase()}:pol))}
+                    className="border rounded px-2 py-1 w-24"/>
+                </td>
+
+                <td>
+                  <input value={p.nombre}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,nombre:e.target.value}:pol))}
+                    className="border rounded px-2 py-1 w-32"/>
+                </td>
+
+                <td>
+                  <select value={p.entidad}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,entidad:e.target.value}:pol))}
+                    className="border rounded px-2 py-1">
+                    {entidadesLista.map(ent=><option key={ent}>{ent}</option>)}
+                  </select>
+                </td>
+
+                <td>
+                  <select value={p.cuotas}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,cuotas:Number(e.target.value)}:pol))}
+                    className="border rounded px-2 py-1">
+                    {[...Array(12)].map((_,i)=><option key={i+1}>{i+1}</option>)}
+                  </select>
+                </td>
+
+                <td>
+                  <input value={p.valor}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,valor:e.target.value}:pol))}
+                    className="border rounded px-2 py-1 w-28"/>
+                </td>
+
+                <td className="text-center">
+                  <input type="checkbox" checked={p.montada}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,montada:e.target.checked}:pol))}/>
+                </td>
+
+                <td className="text-center">
+                  <input type="checkbox" checked={p.recaudada}
+                    disabled={!p.montada}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,recaudada:e.target.checked}:pol))}/>
+                </td>
+
+                <td className="text-center">
+                  <input type="checkbox" checked={p.firmada}
+                    disabled={!p.recaudada}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,firmada:e.target.checked}:pol))}/>
+                </td>
+
+                <td className="text-center">
+                  <input type="checkbox" checked={p.desembolsada}
+                    disabled={!p.montada || !p.recaudada || !p.firmada}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,desembolsada:e.target.checked}:pol))}/>
+                </td>
+
+                <td className="text-center">
+                  <select value={p.endoso}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,endoso:e.target.value}:pol))}
+                    className="border rounded px-1">
+                    <option value="">-</option>
+                    <option value="SI">SI</option>
+                    <option value="NO">NO</option>
+                  </select>
+                </td>
+
+                <td className="text-center">
+                  {p.endoso==="SI" &&
+                    <input type="checkbox"
+                      checked={p.certificacion}
+                      disabled={!p.desembolsada}
+                      onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,certificacion:e.target.checked}:pol))}/>
+                  }
+                </td>
+{/* 🆕 CORREO ENDOSO */}
+<td className="text-center">
+  {p.endoso==="SI" && p.certificacion && (
+    <select
+      value={p.correoEndoso ? "SI" : "NO"}
+      onChange={(e)=>{
+        setPolizas(prev=>prev.map(pol =>
+          pol.id===p.id
+            ? {...pol, correoEndoso: e.target.value==="SI"}
+            : pol
+        ))
+      }}
+      className="border rounded px-1"
+    >
+      <option value="NO">NO</option>
+      <option value="SI">SI</option>
+    </select>
+  )}
 </td>
 
+                <td className="text-center">
+                  <input type="checkbox" checked={p.delegada}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,delegada:e.target.checked}:pol))}/>
+                </td>
 
-{/* ✉️ CORREO ENDOSO ENVIADO */}
-<td>
-{p.endoso==="SI" && p.certificacion &&(
-<select
-value={p.correoEndoso||""}
-onChange={(e)=>actualizar(p.id,"correoEndoso",e.target.value)}
-className="border rounded px-1"
->
-<option value="">-</option>
-<option value="SI">SI</option>
-<option value="NO">NO</option>
-</select>
-)}
-</td>
+                <td>
+                  <input value={p.delegadaA}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,delegadaA:e.target.value}:pol))}
+                    className="border rounded px-2 py-1 w-32"/>
+                </td>
 
-<td>
-<input type="checkbox"
-checked={p.delegada}
-onChange={(e)=>actualizar(p.id,"delegada",e.target.checked)}/>
-</td>
+                <td>
+                  <input value={p.gestor}
+                    onChange={(e)=>setPolizas(prev=>prev.map(pol=>pol.id===p.id?{...pol,gestor:e.target.value}:pol))}
+                    className="border rounded px-2 py-1 w-32"/>
+                </td>
 
-<td>
-<input value={p.delegadaA||""}
-onChange={(e)=>actualizar(p.id,"delegadaA",e.target.value)}
-className="border rounded px-2 py-1 w-32"/>
-</td>
+                <td>
+                  <button onClick={()=>eliminarPoliza(p.id)}
+                    className="text-red-600 font-bold px-2">X</button>
+                </td>
 
-<td>
-<input value={p.gestor}
-onChange={(e)=>actualizar(p.id,"gestor",e.target.value)}
-className="border rounded px-2 py-1 w-32"/>
-</td>
-
-<td>
-<button
-onClick={()=>eliminarPoliza(p.id)}
-className="text-red-600 font-bold px-2"
->
-X
-</button>
-</td>
-
-</tr>
-);
-})}
-</tbody>
-</table>
-
-</div>
-);
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
