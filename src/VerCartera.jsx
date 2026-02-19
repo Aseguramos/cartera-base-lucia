@@ -2,14 +2,7 @@ import React, { useEffect, useState, Fragment } from "react";
 import { db } from "./firebase";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import {
-  collection,
-  getDocs,
-  updateDoc,
-  doc,
-  deleteDoc,
-  writeBatch,
-} from "firebase/firestore";
+import { getDocs, collection, doc, updateDoc } from "firebase/firestore";
 import SubirCartera from "./SubirCartera";
 
 const aseguradorasFijas = [
