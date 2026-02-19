@@ -1,8 +1,8 @@
 import React, { useEffect, useState, Fragment } from "react";
 import { db } from "./firebase";
+import { onSnapshot, collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import { getDocs, collection, doc, updateDoc } from "firebase/firestore";
 import SubirCartera from "./SubirCartera";
 
 const aseguradorasFijas = [
@@ -165,20 +165,25 @@ useEffect(() => {
     return g !== "" && g !== "si" && g !== "sí";
   };
 
-  // ================== CARGA DE DATOS ==================
-  const cargarDatos = async () => {
-    const snap = await getDocs(collection(db, "cartera"));
-    const documentos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+ useEffect(() => {
+  const unsubscribe = onSnapshot(collection(db, "cartera"), (snap) => {
+
+    const documentos = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+
     const anuladasValidas = documentos.filter((d) => {
       const anulada = (d.anulada || "").toLowerCase().trim();
       const tieneMinimos = d.poliza && d.aseguradora && d.nombre;
-      return !(anulada === "sí" && !tieneMinimos);
+      return !(anulada === "si" && !tieneMinimos);
     });
+
     setData(anuladasValidas);
-  };
+  });
 
-  useEffect(() => { cargarDatos(); }, []);
-
+  return () => unsubscribe();
+}, []);
   // ================== CONTADORES ==================
   useEffect(() => {
     const dataFiltrada =
