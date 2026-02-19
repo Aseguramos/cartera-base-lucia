@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, getDocs, addDoc, updateDoc, doc } from "firebase/firestore";
 import { db } from "./firebase";
+import { onSnapshot, collection } from "firebase/firestore";
 
 const refFinanciadas = collection(db, "polizasFinanciadas");
 
@@ -100,21 +101,21 @@ const [polizas, setPolizas] = useState(() => {
 });
 
 useEffect(() => {
-  const cargarFinanciadas = async () => {
-    const snap = await getDocs(refFinanciadas);
-    const datos = snapshot.docs
-  .map(doc => ({ id: doc.id, ...doc.data() }))
-  .filter(p => p.tipo === "financiada");
 
+  const unsubscribe = onSnapshot(refFinanciadas, (snap) => {
 
+    const datos = snap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(p => p.tipo === "financiada");
 
     if (datos.length > 0) {
       setPolizas(datos);
       localStorage.setItem("polizasFinanciadasJL", JSON.stringify(datos));
     }
-  };
+  });
 
-  cargarFinanciadas();
+  return () => unsubscribe();
+
 }, []);
 
 // 💾 GUARDADO AUTOMATICO LOCAL (NO SE BORRAN AL CAMBIAR PESTAÑA)
