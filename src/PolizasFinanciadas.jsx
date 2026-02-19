@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, doc } from "firebase/firestore";
 import { db } from "./firebase";
+
+const refFinanciadas = collection(db, "polizasFinanciadas");
 
 function getSemaforo(poliza) {
 
@@ -44,6 +46,8 @@ function getSemaforo(poliza) {
 
 export default function PolizasFinanciadas() {
 
+  const refFinanciadas = collection(db, "polizasFinanciadas");
+
   const entidadesLista = [
     "Finesa","Previcredito","Crediestado","Credivalores",
     "ALLIANZ","ESTADO","SURA","MUNDIAL","PREVISORA",
@@ -65,6 +69,7 @@ export default function PolizasFinanciadas() {
     };
 
 
+    
     cargarCartera();
   }, []);
 const [polizas, setPolizas] = useState(() => {
@@ -94,6 +99,24 @@ const [polizas, setPolizas] = useState(() => {
       }];
 });
 
+useEffect(() => {
+  const cargarFinanciadas = async () => {
+    const snap = await getDocs(refFinanciadas);
+    const datos = snapshot.docs
+  .map(doc => ({ id: doc.id, ...doc.data() }))
+  .filter(p => p.tipo === "financiada");
+
+
+
+    if (datos.length > 0) {
+      setPolizas(datos);
+      localStorage.setItem("polizasFinanciadasJL", JSON.stringify(datos));
+    }
+  };
+
+  cargarFinanciadas();
+}, []);
+
 // 💾 GUARDADO AUTOMATICO LOCAL (NO SE BORRAN AL CAMBIAR PESTAÑA)
 useEffect(()=>{
   localStorage.setItem(
@@ -102,31 +125,54 @@ useEffect(()=>{
   );
 },[polizas]);
 
-  const agregarPoliza = () => {
+
+const agregarPoliza = async () => {
+
+  const nueva = {
+    id: Date.now(),
+    numeroPoliza: "",
+    fecha: "",
+    placa: "",
+    nombre: "",
+    entidad: "Finesa",
+    aseguradora: "SURA",
+    gestor: "",
+    cuotas: 1,
+    valor: "",
+    montada:false,
+    recaudada:false,
+    firmada:false,
+    endoso:"",
+    certificacion:false,
+    correoEndoso:false,
+    desembolsada:false,
+    delegada:false,
+    delegadaA:""
+  };
+
+  try {
+
+   // 🔥 GUARDAR EN FIREBASE
+console.log("🔥 Intentando guardar en Firebase...");
+console.log("🔥 DB:", db);
+
+const docRef = await addDoc(refFinanciadas, {
+  ...nueva,
+  tipo: "financiada"
+});
+
+    // 🔥 GUARDAR TAMBIÉN EN PANTALLA
     setPolizas(prev => [
       ...prev,
-      {
-        id: Date.now(),
-        numeroPoliza: "",
-        fecha: "",
-        placa: "",
-        nombre: "",
-        entidad: "Finesa",
-        gestor: "",
-        cuotas: 1,
-        valor: "",
-        montada: false,
-        recaudada: false,
-        firmada: false,
-        endoso: "",
-        certificacion:false,
-        correoEndoso:false,
-        desembolsada: false,
-        delegada: false,
-        delegadaA:""
-      }
+      { ...nueva, idFirestore: docRef.id }
     ]);
-  };
+
+    console.log("🔥 Guardado en Firebase OK");
+
+  } catch (error) {
+    console.error("❌ Error guardando en Firebase:", error);
+  }
+};
 
   const eliminarPoliza = (id) => {
     setPolizas(prev => prev.filter(p => p.id !== id));

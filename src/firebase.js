@@ -21,8 +21,8 @@ const auth = initializeAuth(app, {
 });
 
 // 🔥 FIRESTORE OFFLINE REAL
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache()
-});
+import { getFirestore } from "firebase/firestore";
+
+const db = getFirestore(app);
 
 export { auth, db };

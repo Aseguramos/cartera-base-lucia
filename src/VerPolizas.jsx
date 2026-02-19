@@ -164,7 +164,9 @@ export default function VerPolizas() {
     try {
       const q = query(collection(db, "polizas"), orderBy("aseguradora", "asc"));
       const snap = await getDocs(q);
-      const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const arr = snap.docs
+  .map(d => ({ id: d.id, ...d.data() }))
+  .filter(p => p.tipo !== "financiada");
       setPolizas(arr);
     } catch (e) {
       console.error("Error cargando pólizas:", e);
