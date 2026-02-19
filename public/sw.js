@@ -1,37 +1,30 @@
 const CACHE_NAME = "cartera-base-v1";
 
+// 🔥 INSTALL (solo instalar, no tocar Firebase)
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
-        "/",
-        "/index.html",
-        "/manifest.json",
-        "/icon-192.png",
-        "/icon-512.png"
-      ]);
-    })
-  );
   self.skipWaiting();
 });
 
+// 🔥 ACTIVATE
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// 🔥 FETCH (NO interceptar Firebase)
 self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      if (response) return response;
 
-      return fetch(event.request)
-        .then((networkResponse) => {
-          return caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, networkResponse.clone());
-            return networkResponse;
-          });
-        })
-        .catch(() => caches.match("/index.html"));
+  if (
+    event.request.method !== "GET" ||
+    event.request.url.includes("firestore") ||
+    event.request.url.includes("googleapis")
+  ) {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((res) => {
+      return res || fetch(event.request);
     })
   );
+
 });
